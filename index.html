@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assessment Plan Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --ink:#1b1f24; --muted:#5c6570; --line:#dde1e6;
+  --accent:#2457c5; --good:#2e7d32; --warn:#b26a00; --bad:#c62828; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --surface:#1a1e24; --ink:#e8eaed; --muted:#9aa3ad; --line:#2c323a;
+    --accent:#7aa2ff; --good:#7bc67e; --warn:#f0b04a; --bad:#ef7070; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --surface:#1a1e24; --ink:#e8eaed; --muted:#9aa3ad; --line:#2c323a;
+  --accent:#7aa2ff; --good:#7bc67e; --warn:#f0b04a; --bad:#ef7070; --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+h1{font-size:1.5rem;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0}
+.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.85rem}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.live{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 25%,transparent)}
+.dot.err{background:var(--bad)}
+button,.btn{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--accent)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow)}
+.card .k{color:var(--muted);font-size:.8rem;margin-bottom:4px}
+.card .v{font-size:1.35rem;font-weight:600}
+.card .s{color:var(--muted);font-size:.85rem}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--good);width:0;transition:width .4s}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin-bottom:20px}
+.panel h2{font-size:1rem;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+table.sheet{border-collapse:collapse;width:100%;min-width:980px;font-size:.85rem}
+table.sheet th,table.sheet td{border:1px solid #c9ced4;padding:6px 8px;vertical-align:middle;color:#1b1f24;white-space:pre-line}
+table.sheet th{font-weight:600;text-align:center;font-size:.8rem}
+td.date{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;text-align:center;white-space:nowrap;position:relative}
+td.today{outline:3px solid var(--accent);outline-offset:-3px}
+td.soon::after{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#e65100}
+tr.done td{opacity:.75}
+tr.done td.status{opacity:1;font-weight:600}
+td.status{text-align:center;font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:4px 10px;border-radius:999px;border:1px solid #c9ced4;color:#1b1f24}
+.notes{color:var(--muted);font-size:.8rem;padding:0 16px 12px;margin:0}
+.msg{padding:16px;color:var(--muted)}
+.msg.err{color:var(--bad)}
+@media (max-width:640px){h1{font-size:1.25rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Assessment Plan</h1>
+      <p class="sub" id="subtitle">Loading the plan…</p>
+    </div>
+    <div class="meta">
+      <span class="dot" id="dot"></span><span id="updated">Connecting…</span>
+      <button id="refresh" type="button">Refresh</button>
+      <a class="btn" id="download" href="#" download>Download Excel</a>
+    </div>
+  </header>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="panel">
+    <h2>Unit timetable</h2>
+    <div class="scroll" id="table"><p class="msg">Loading…</p></div>
+    <p class="notes">Colours come straight from the Excel file. A blue outline marks today; an orange dot marks a date in the next 7 days.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Colour codes</h2>
+    <div id="legends"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+(() => {
+  const POLL_MS = 120000;           // check GitHub for a new version every 2 minutes
+  const FILES = ['plan.xlsm', 'plan.xlsx'];
+  const $ = id => document.getElementById(id);
+  const state = { sha: null, repo: null, branch: 'main', file: null, timer: null };
+
+  /* ---------- where is the data? ---------- */
+  function detectRepo() {
+    const q = new URLSearchParams(location.search).get('repo');
+    if (q && q.includes('/')) return q;
+    const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+    if (!m) return null;
+    const first = location.pathname.split('/').filter(Boolean)[0];
+    return first && !first.includes('.') ? `${m[1]}/${first}` : `${m[1]}/${m[1]}.github.io`;
+  }
+  const gh = (path, accept = 'application/vnd.github+json') =>
+    fetch(`https://api.github.com/repos/${state.repo}${path}`, { headers: { Accept: accept }, cache: 'no-store' });
+
+  async function loadFromGitHub(force) {
+    const res = await gh(`/contents/?ref=${state.branch}`);
+    if (!res.ok) throw new Error(`GitHub returned ${res.status}${res.status === 403 ? ' (hourly limit reached, try again later)' : ''}`);
+    const list = await res.json();
+    const entry = FILES.map(n => list.find(f => f.name === n)).find(Boolean);
+    if (!entry) throw new Error('No plan.xlsm or plan.xlsx found in the repository.');
+    if (!force && entry.sha === state.sha) return null;      // nothing changed
+    const blob = await gh(`/git/blobs/${entry.sha}`, 'application/vnd.github.raw');
+    if (!blob.ok) throw new Error(`Could not download ${entry.name} (${blob.status})`);
+    const buf = await blob.arrayBuffer();
+    let when = null;
+    try {
+      const c = await gh(`/commits?path=${encodeURIComponent(entry.name)}&per_page=1&sha=${state.branch}`);
+      if (c.ok) { const j = await c.json(); when = j[0] && new Date(j[0].commit.committer.date); }
+    } catch (_) {}
+    state.sha = entry.sha; state.file = entry.name;
+    return { buf, when, name: entry.name };
+  }
+  async function loadLocal() {
+    for (const n of FILES) {
+      const r = await fetch(n, { cache: 'no-store' }).catch(() => null);
+      if (r && r.ok) {
+        const lm = r.headers.get('last-modified');
+        state.file = n;
+        return { buf: await r.arrayBuffer(), when: lm ? new Date(lm) : null, name: n };
+      }
+    }
+    throw new Error('Could not find plan.xlsm or plan.xlsx next to this page.');
+  }
+
+  /* ---------- Excel colours ---------- */
+  const DEFAULT_THEME = ['FFFFFF','000000','E7E6E6','44546A','5B9BD5','ED7D31','A5A5A5','FFC000','4472C4','70AD47'];
+  function readTheme(wb) {
+    try {
+      const xml = wb._themes && Object.values(wb._themes)[0];
+      if (!xml) return DEFAULT_THEME;
+      const doc = new DOMParser().parseFromString(xml, 'application/xml');
+      const pick = tag => {
+        const el = doc.getElementsByTagNameNS('*', tag)[0];
+        if (!el) return null;
+        const c = el.firstElementChild;
+        return c && (c.getAttribute('lastClr') || c.getAttribute('val'));
+      };
+      const order = ['lt1','dk1','lt2','dk2','accent1','accent2','accent3','accent4','accent5','accent6'];
+      return order.map((t, i) => pick(t) || DEFAULT_THEME[i]);
+    } catch (_) { return DEFAULT_THEME; }
+  }
+  function tint(hex, t) {
+    if (!t) return '#' + hex;
+    let r = parseInt(hex.slice(0,2),16)/255, g = parseInt(hex.slice(2,4),16)/255, b = parseInt(hex.slice(4,6),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b); let h = 0, s = 0, l = (max+min)/2;
+    if (max !== min) { const d = max-min; s = l > .5 ? d/(2-max-min) : d/(max+min);
+      h = max === r ? (g-b)/d + (g<b?6:0) : max === g ? (b-r)/d + 2 : (r-g)/d + 4; h /= 6; }
+    l = t < 0 ? l*(1+t) : l*(1-t) + t;
+    const f = (p,q,x) => { if (x<0) x+=1; if (x>1) x-=1; if (x<1/6) return p+(q-p)*6*x; if (x<1/2) return q; if (x<2/3) return p+(q-p)*(2/3-x)*6; return p; };
+    let R,G,B; if (!s) R=G=B=l; else { const q = l<.5 ? l*(1+s) : l+s-l*s, p = 2*l-q; R=f(p,q,h+1/3); G=f(p,q,h); B=f(p,q,h-1/3); }
+    return '#' + [R,G,B].map(v => Math.round(v*255).toString(16).padStart(2,'0')).join('');
+  }
+  function colourOf(c, theme) {
+    if (!c) return null;
+    if (c.argb) { const a = c.argb.slice(-6); return c.argb.length === 8 && c.argb.startsWith('00') && a === '000000' ? null : '#' + a; }
+    if (c.theme !== undefined) return tint(theme[c.theme] || 'FFFFFF', c.tint || 0);
+    return null;
+  }
+  const fillOf = (cell, theme) => cell.fill && cell.fill.type === 'pattern' && cell.fill.pattern !== 'none' ? colourOf(cell.fill.fgColor, theme) : null;
+
+  /* ---------- values (with a fallback for formulas Excel hasn't calculated) ---------- */
+  const isDateFmt = f => !!f && /[dmy]/i.test(f.replace(/\[[^\]]*\]|"[^"]*"/g, ''));
+  const fromSerial = n => new Date(Math.round((n - 25569) * 864e5));
+  function valueOf(ws, addr, depth = 0) {
+    const cell = ws.getCell(addr); let v = cell.value;
+    if (v && typeof v === 'object' && !(v instanceof Date)) {
+      if ('result' in v && v.result !== undefined && !(typeof v.result === 'object' && v.result && v.result.error)) v = v.result;
+      else if (v.formula && depth < 50) {
+        const m = v.formula.replace(/^=/, '').replace(/\$/g, '').match(/^([A-Z]+\d+)\s*([+-])\s*(\d+(?:\.\d+)?)$/i);
+        if (m) { const base = valueOf(ws, m[1].toUpperCase(), depth + 1); const n = +m[3] * (m[2] === '-' ? -1 : 1);
+          v = base instanceof Date ? new Date(base.getTime() + n*864e5) : typeof base === 'number' ? base + n : null; }
+        else v = null;
+      }
+      else if (v.richText) v = v.richText.map(t => t.text).join('');
+      else if (v.text) v = v.text;
+      else v = null;
+    }
+    if (typeof v === 'number' && isDateFmt(cell.numFmt)) v = fromSerial(v);
+    return v;
+  }
+  const dayKey = d => d.toISOString().slice(0,10);
+  const fmtDate = d => d.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+  const text = v => v == null ? '' : v instanceof Date ? fmtDate(v) : String(v).trim();
+  const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const colLetter = n => { let s=''; while(n){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=(n-m-1)/26; } return s; };
+
+  /* ---------- render ---------- */
+  function render(wb, when) {
+    const ws = wb.worksheets[0], theme = readTheme(wb);
+    const today = new Date(); const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    const todayKey = dayKey(todayUTC), weekAhead = new Date(todayUTC.getTime() + 7*864e5);
+
+    // header block (label in col A, value in col C)
+    const info = {};
+    for (let r = 1; r <= 6; r++) { const k = text(valueOf(ws, 'A'+r)).replace(/:$/, ''); const v = valueOf(ws, 'C'+r); if (k && v != null) info[k.toLowerCase()] = v; }
+    $('title').textContent = text(valueOf(ws, 'A1')) || 'Assessment Plan';
+    const prog = text(info['programme  title'] || info['programme title'] || '');
+    $('subtitle').textContent = [prog, info['student name'] && text(info['student name']),
+      info['enrolled date'] && 'Enrolled ' + text(info['enrolled date'])].filter(Boolean).join(' · ');
+
+    // locate the table
+    let hdr = 0;
+    for (let r = 1; r <= ws.rowCount && !hdr; r++) if (/unit no/i.test(text(valueOf(ws, 'B'+r)))) hdr = r;
+    if (!hdr) throw new Error('Could not find the "Unit No" header row in the sheet.');
+    let lastCol = 1; for (let c = 1; c <= ws.columnCount; c++) if (text(valueOf(ws, colLetter(c)+hdr))) lastCol = c;
+    const cols = []; for (let c = 1; c <= lastCol; c++) cols.push({ L: colLetter(c), name: text(valueOf(ws, colLetter(c)+hdr)) });
+    const statusCol = cols.find(c => /status/i.test(c.name));
+    let last = hdr; while (text(valueOf(ws, 'B'+(last+1)))) last++;
+
+    // legends below the table: any row with a filled, labelled cell
+    const legends = []; let current = null;
+    for (let r = last + 1; r <= Math.min(ws.rowCount, last + 60); r++) {
+      const cells = cols.map(c => ({ v: text(valueOf(ws, c.L+r)), bg: fillOf(ws.getCell(c.L+r), theme) })).filter(c => c.v);
+      if (!cells.length) { current = null; continue; }
+      if (cells.length === 1 && /colour|color/i.test(cells[0].v)) { current = { title: cells[0].v, items: [] }; legends.push(current); continue; }
+      if (/colour|color/i.test(cells[0].v) && cells.length > 1) { legends.push({ title: cells[0].v, items: cells.slice(1) }); current = null; continue; }
+      if (current) current.items.push(...cells); else legends.push({ title: '', items: cells });
+    }
+    const statusLegend = legends.find(l => /status|progress/i.test(l.title));
+    const statusColour = {}; (statusLegend ? statusLegend.items : []).forEach(i => statusColour[i.v.toLowerCase()] = i.bg);
+    const doneLabel = statusLegend && statusLegend.items.length ? statusLegend.items[statusLegend.items.length-1].v.toLowerCase() : 'completed';
+    const isDone = s => !!s && (s.toLowerCase() === doneLabel || /complete/i.test(s));
+
+    // merged cells (to respect the Term column spans)
+    const spans = {}, hidden = new Set();
+    (ws.model.merges || []).forEach(m => {
+      const [a, b] = m.split(':'); const ca = ws.getCell(a), cb = ws.getCell(b);
+      if (ca.row < hdr || ca.row > last) return;
+      spans[a] = { rows: cb.row - ca.row + 1, cols: cb.col - ca.col + 1 };
+      for (let r = ca.row; r <= cb.row; r++) for (let c = ca.col; c <= cb.col; c++) if (r !== ca.row || c !== ca.col) hidden.add(colLetter(c)+r);
+    });
+
+    let html = '<table class="sheet"><thead><tr>';
+    cols.forEach(c => { const bg = fillOf(ws.getCell(c.L+hdr), theme); html += `<th${bg ? ` style="background:${bg}"` : ''}>${esc(c.name)}</th>`; });
+    html += '</tr></thead><tbody>';
+    const units = [], events = [];
+    for (let r = hdr + 1; r <= last; r++) {
+      const status = statusCol ? text(valueOf(ws, statusCol.L+r)) : '';
+      const done = isDone(status);
+      const unit = { no: text(valueOf(ws, 'B'+r)), title: text(valueOf(ws, 'D'+r)).replace(/\s+/g, ' '), status, done };
+      units.push(unit);
+      html += `<tr${done ? ' class="done"' : ''}>`;
+      cols.forEach(c => {
+        const a = c.L + r; if (hidden.has(a)) return;
+        const cell = ws.getCell(a), v = valueOf(ws, a); let bg = fillOf(cell, theme), cls = [];
+        if (c === statusCol) { cls.push('status'); bg = statusColour[status.toLowerCase()] || bg; }
+        if (v instanceof Date) {
+          cls.push('date');
+          if (dayKey(v) === todayKey) cls.push('today');
+          else if (v > todayUTC && v <= weekAhead) cls.push('soon');
+          if (!done && v >= todayUTC) events.push({ date: v, what: c.name, unit });
+        }
+        const fc = cell.font && colourOf(cell.font.color, theme);
+        const style = [bg && `background:${bg}`, fc && fc !== '#000000' && `color:${fc}`, cell.font && cell.font.bold && 'font-weight:600'].filter(Boolean).join(';');
+        const sp = spans[a] || {};
+        html += `<td${cls.length ? ` class="${cls.join(' ')}"` : ''}${style ? ` style="${style}"` : ''}${sp.rows > 1 ? ` rowspan="${sp.rows}"` : ''}${sp.cols > 1 ? ` colspan="${sp.cols}"` : ''}>${esc(text(v))}</td>`;
+      });
+      html += '</tr>';
+    }
+    $('table').innerHTML = html + '</tbody></table>';
+
+    // summary cards
+    const doneN = units.filter(u => u.done).length;
+    events.sort((a, b) => a.date - b.date);
+    const next = events[0];
+    const nextSumm = events.find(e => /assignment submission/i.test(e.what));
+    const inProgress = units.filter(u => !u.done && u.status && !/not started/i.test(u.status));
+    $('cards').innerHTML = `
+      <div class="card"><div class="k">Units completed</div><div class="v">${doneN} / ${units.length}</div>
+        <div class="bar"><i style="width:${units.length ? doneN/units.length*100 : 0}%"></i></div></div>
+      <div class="card"><div class="k">Next date</div><div class="v">${next ? esc(fmtDate(next.date)) : '—'}</div>
+        <div class="s">${next ? esc(next.unit.no + ': ' + next.what) : 'Nothing scheduled'}</div></div>
+      <div class="card"><div class="k">Next summative deadline</div><div class="v">${nextSumm ? esc(fmtDate(nextSumm.date)) : '—'}</div>
+        <div class="s">${nextSumm ? esc(nextSumm.unit.no + ' – ' + nextSumm.unit.title) : ''}</div></div>
+      <div class="card"><div class="k">In progress</div><div class="v">${inProgress.length}</div>
+        <div class="s">${esc(inProgress.map(u => u.no + ' (' + u.status + ')').join(', ') || 'None')}</div></div>`;
+
+    $('legends').innerHTML = legends.length ? legends.map(l => `
+      ${l.title ? `<p class="notes" style="padding-top:12px;margin:0"><strong>${esc(l.title)}</strong></p>` : ''}
+      <div class="legend">${l.items.map(i => `<span class="chip" style="background:${i.bg || 'transparent'}">${esc(i.v)}</span>`).join('')}</div>`).join('')
+      : '<p class="msg">No colour code found in the sheet.</p>';
+
+    $('updated').textContent = (when ? 'Excel file updated ' + when.toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : 'Loaded')
+      + (state.repo ? ' · checks for changes every 2 min' : '');
+    $('download').href = state.repo ? `https://github.com/${state.repo}/raw/${state.branch}/${state.file}` : state.file;
+    $('download').setAttribute('download', state.file || 'plan.xlsx');
+  }
+
+  async function update(force) {
+    try {
+      const got = state.repo ? await loadFromGitHub(force) : await loadLocal();
+      if (!got) return;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(got.buf);
+      render(wb, got.when);
+      $('dot').className = 'dot live';
+    } catch (e) {
+      $('dot').className = 'dot err';
+      $('updated').textContent = e.message;
+      if (!state.sha) $('table').innerHTML = `<p class="msg err">${esc(e.message)}</p>`;
+      console.error(e);
+    }
+  }
+
+  state.repo = detectRepo();
+  $('refresh').addEventListener('click', () => update(true));
+  update(true);
+  if (state.repo) {
+    const tick = () => { if (!document.hidden) update(false); };
+    state.timer = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+  }
+})();
+</script>
+</body>
+</html>
